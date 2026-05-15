@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Peta Spasial Perkotaan — Tanjungpinang</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="topbar">
+    <h2>🗺 Peta Spasial Perkotaan</h2>
+    <div class="stat">Node <b id="tNodes">0</b></div>
+    <div class="tsep"></div>
+    <div class="stat">Jalan <b id="tRoads">0</b></div>
+    <div class="tsep"></div>
+    <div class="stat">Rute <b id="tRoute">—</b></div>
+    <div class="tsep"></div>
+    <div class="stat">Zoom <b id="tZoom">100%</b></div>
+  </div>
+
+  <!-- Panel pilihan kendaraan -->
+  <div id="vehicle-panel">
+    <div class="vp-title">OBJEK</div>
+    <button class="vbtn active" data-v="car">🚗 Mobil</button>
+    <button class="vbtn" data-v="motor">🏍 Motor</button>
+    <button class="vbtn" data-v="bike">🚲 Sepeda</button>
+    <button class="vbtn" data-v="person">🚶 Orang</button>
+  </div>
+
+  <div id="controls">
+    <button class="btn primary" id="btnPlay">▶ Start Track</button>
+    <div class="csep"></div>
+    <button class="btn follow-on" id="btnFollow">📷 Follow</button>
+    <div class="csep"></div>
+    <button class="btn" id="btnMap">🔀 Acak Map</button>
+    <div class="csep"></div>
+    <button class="btn" id="btnPos">📍 Acak Posisi</button>
+    <div class="csep"></div>
+    <button class="btn danger" id="btnReset">↺ Reset</button>
+  </div>
+
+  <div id="zoom-ctrl">
+    <button class="zbtn" id="btnZIn">+</button>
+    <button class="zbtn" id="btnZOut">−</button>
+  </div>
+
+  <div id="status"><div class="dot" id="dot"></div><span id="statusTxt">Siap</span></div>
+  <div id="follow-badge">📷 Mengikuti objek...</div>
+  <div id="toast"></div>
+
+  <!-- POPUP LOKASI -->
+  <div id="location-popup">
+    <button class="lp-close" id="lpClose">✕</button>
+    <div class="lp-icon" id="lpIcon">🏢</div>
+    <div class="lp-nama" id="lpNama">Nama Lokasi</div>
+    <div><span class="lp-kat" id="lpKat">Kategori</span></div>
+    <div class="lp-id" id="lpId">Node #0</div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
