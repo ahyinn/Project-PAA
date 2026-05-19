@@ -296,5 +296,85 @@ function generateWater(){
   }
 }
 
+//COMMIT 3
+// ZOOM / PAN
+function zoomAtPoint(sx,sy,factor){
+  const oldZ=zoom, newZ=Math.min(Math.max(oldZ*factor,ZMIN),ZMAX);
+  if(newZ===oldZ) return;
+  const wx=vx+sx/oldZ, wy=vy+sy/oldZ;
+  zoom=newZ; vx=wx-sx/zoom; vy=wy-sy/zoom;
+  clamp(); render();
+}
+
+function zoomAtCenter(factor){ zoomAtPoint(cv.width/2,cv.height/2,factor); }
+
+// Mouse drag + klik
+let drag=false, dsx=0, dsy=0, dvx=0, dvy=0;
+let mouseDownX=0, mouseDownY=0;
+cv.addEventListener('mousedown',e=>{
+  drag=true; dsx=e.clientX; dsy=e.clientY; dvx=vx; dvy=vy;
+  mouseDownX=e.clientX; mouseDownY=e.clientY;
+});
+window.addEventListener('mousemove',e=>{
+  if(!drag) return;
+  if(followMode&&running) disableFollow();
+  vx=dvx-(e.clientX-dsx)/zoom; vy=dvy-(e.clientY-dsy)/zoom; clamp(); render();
+});
+window.addEventListener('mouseup',e=>{
+  drag=false;
+  const moved = Math.hypot(e.clientX - mouseDownX, e.clientY - mouseDownY);
+  if(moved < 6){
+    const hit = handleLocationClick(e.clientX, e.clientY);
+    if(!hit) hideLocationPopup();
+  }
+});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  if(followMode&&running) disableFollow();
+  const r=cv.getBoundingClientRect();
+  zoomAtPoint(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.15:0.87);
+},{passive:false});
+
+// Touch
+let lastDist2=0, touchStartX=0, touchStartY=0;
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(e.touches.length===1){
+    drag=true; dsx=e.touches[0].clientX; dsy=e.touches[0].clientY; dvx=vx; dvy=vy;
+    touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY;
+  }
+  if(e.touches.length===2){
+    drag=false;
+    lastDist2=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);
+  }
+},{passive:false});
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&drag){
+    if(followMode&&running) disableFollow();
+    vx=dvx-(e.touches[0].clientX-dsx)/zoom; vy=dvy-(e.touches[0].clientY-dsy)/zoom; clamp(); render();
+  }
+  if(e.touches.length===2){
+    const nd=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);
+    if(lastDist2>0&&nd>0){
+      if(followMode&&running) disableFollow();
+      const r=cv.getBoundingClientRect();
+      zoomAtPoint((e.touches[0].clientX+e.touches[1].clientX)/2-r.left,(e.touches[0].clientY+e.touches[1].clientY)/2-r.top,nd/lastDist2);
+    }
+    lastDist2=nd;
+  }
+},{passive:false});
+cv.addEventListener('touchend',e=>{
+  if(e.touches.length===0){
+    drag=false;
+    const changedTouch = e.changedTouches[0];
+    const moved = Math.hypot(changedTouch.clientX - touchStartX, changedTouch.clientY - touchStartY);
+    if(moved < 10){
+      const hit = handleLocationClick(changedTouch.clientX, changedTouch.clientY);
+      if(!hit) hideLocationPopup();
+    }
+  }
+  if(e.touches.length<2) lastDist2=0;
+});
 
 })
