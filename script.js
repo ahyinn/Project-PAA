@@ -101,6 +101,7 @@ function clamp(){
   vy = mh <= cv.height ? (H - cv.height/zoom)/2 : Math.min(Math.max(vy,0), H - cv.height/zoom);
 }
 
+// COMMIT 4
 // FUNGSI GRAFIS MANUAL
 function garisDAA(x1,y1,x2,y2,warna,tebal=1){
   ctx.strokeStyle = warna;
@@ -153,6 +154,7 @@ function lingkaranNode(cx, cy, r, warna, isi=true){
   else   { ctx.strokeStyle=warna; ctx.stroke(); }
 }
 
+// COMMIT 2
 // GENERATE PETA
 function randInt(a,b){ return Math.floor(Math.random()*(b-a))+a; }
 function rand(a,b)   { return Math.random()*(b-a)+a; }
