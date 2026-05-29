@@ -473,5 +473,64 @@ function ensureConnected(edgeSet) {
   }
 }
 
+// ALGORITMA DIJKSTRA — Pencarian Rute Terpendek
+//
+// Implementasi menggunakan Priority Queue (min-heap simulasi via
+// array sort) untuk menemukan jalur berbobot minimum dari node
+// sumber (src) ke node tujuan (dst).
+//
+// Bobot edge = panjang kurva Bezier (bzLen), bukan jarak Euclidean,
+// agar akurat terhadap lekukan jalan yang dirender.
+// ══════════════════════════════════════════════════════════════════
+function dijkstra(src, dst) {
+  const INF      = 1e18;
+  const dist     = new Array(nodes.length).fill(INF);
+  const prev     = new Array(nodes.length).fill(-1);
+  const prevEdge = new Array(nodes.length).fill(-1);
+  const visited  = new Array(nodes.length).fill(false);
+  dist[src] = 0;
+
+  // Bangun adjacency list: { n: neighbor, w: bobot, ei: index edge }
+  const adj = nodes.map(() => []);
+  edges.forEach((e, i) => {
+    adj[e.a].push({ n: e.b, w: e.len, ei: i });
+    adj[e.b].push({ n: e.a, w: e.len, ei: i });
+  });
+
+  // Priority Queue — diproses dari jarak terkecil
+  const pq = [{ n: src, d: 0 }];
+  while (pq.length) {
+    pq.sort((a, b) => a.d - b.d);          // simulasi min-heap
+    const { n, d } = pq.shift();
+    if (visited[n]) continue;
+    visited[n] = true;
+    if (n === dst) break;                   // early exit
+
+    for (const nb of adj[n]) {
+      const nd = d + nb.w;
+      if (nd < dist[nb.n]) {
+        dist[nb.n]     = nd;
+        prev[nb.n]     = n;
+        prevEdge[nb.n] = nb.ei;
+        pq.push({ n: nb.n, d: nd });
+      }
+    }
+  }
+
+  // Tidak ada rute
+  if (dist[dst] === INF) return { nodes: [], edges: [] };
+
+  // Rekonstruksi jalur dari dst → src, lalu balik
+  const nodeSeq = [], edgeSeq = [];
+  let cur = dst;
+  while (cur !== src) {
+    nodeSeq.unshift(cur);
+    edgeSeq.unshift(prevEdge[cur]);
+    cur = prev[cur];
+  }
+  nodeSeq.unshift(src);
+
+  return { nodes: nodeSeq, edges: edgeSeq };
+}
 
 })();
