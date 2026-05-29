@@ -422,4 +422,56 @@ function lingkaranNode(cx, cy, r, warna, isi = true) {
   else      { ctx.strokeStyle = warna; ctx.stroke(); }
 }
 
+// COMMIT 6
+// KONEKTIVITAS GRAF — BFS (Breadth-First Search)
+// Memastikan seluruh node pada graf terhubung (connected graph).
+// Jika ditemukan komponen terpisah, disambung dengan edge baru.
+function ensureConnected(edgeSet) {
+  // Bangun adjacency list dari edge yang ada
+  const adj = nodes.map(() => []);
+  edges.forEach(e => {
+    adj[e.a].push(e.b);
+    adj[e.b].push(e.a);
+  });
+
+  // Temukan semua komponen terhubung via BFS
+  const vis   = new Array(nodes.length).fill(false);
+  const comps = [];
+
+  function bfs(start) {
+    const comp = [], q = [start];
+    vis[start] = true;
+    while (q.length) {
+      const n = q.shift();
+      comp.push(n);
+      adj[n].forEach(nb => {
+        if (!vis[nb]) { vis[nb] = true; q.push(nb); }
+      });
+    }
+    return comp;
+  }
+
+  nodes.forEach((_, i) => { if (!vis[i]) comps.push(bfs(i)); });
+
+  // Jika lebih dari 1 komponen sambungkan ke komponen utama (comps[0])
+  const set2 = new Set(edges.map(e => Math.min(e.a, e.b) + ',' + Math.max(e.a, e.b)));
+  for (let i = 1; i < comps.length; i++) {
+    const a = comps[0][randInt(0, comps[0].length)];
+    const b = comps[i][randInt(0, comps[i].length)];
+    const k = Math.min(a, b) + ',' + Math.max(a, b);
+    if (!set2.has(k)) {
+      const na = nodes[a], nb = nodes[b];
+      const dx = nb.x - na.x, dy = nb.y - na.y, len = Math.hypot(dx, dy);
+      const c1 = { x: na.x + dx * .33, y: na.y + dy * .33 };
+      const c2 = { x: na.x + dx * .67, y: na.y + dy * .67 };
+      edges.push({
+        id: edges.length, a, b, c1, c2,
+        len, roadLen: len, type: 'collector'
+      });
+      set2.add(k);
+    }
+  }
+}
+
+
 })();
