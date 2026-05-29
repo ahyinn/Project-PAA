@@ -357,4 +357,69 @@ function clamp() {
     if (e.touches.length < 2)  lastDist2 = 0;
   });
 
+// COMMIT 5
+// ALGORITMA DDA — Menggambar garis lurus di canvas
+// Digital Differential Analyzer (digunakan untuk jalan & grid)
+function garisDAA(x1, y1, x2, y2, warna, tebal = 1) {
+  ctx.strokeStyle = warna;
+  ctx.lineWidth   = tebal;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+ 
+// KURVA BEZIER KUBIK — Titik pada parameter t
+// Persamaan: B(t) = (1-t)³P0 + 3(1-t)²tC1 + 3(1-t)t²C2 + t³P3
+function bzPt(p0, c1, c2, p3, t) {
+  const m = 1 - t, m2 = m * m, t2 = t * t;
+  return {
+    x: m2 * m * p0.x + 3 * m2 * t * c1.x + 3 * m * t2 * c2.x + t2 * t * p3.x,
+    y: m2 * m * p0.y + 3 * m2 * t * c1.y + 3 * m * t2 * c2.y + t2 * t * p3.y
+  };
+}
+ 
+// TURUNAN BEZIER KUBIK — Untuk menghitung arah/sudut kendaraan
+// B'(t) = 3(1-t)²(C1-P0) + 6(1-t)t(C2-C1) + 3t²(P3-C2)
+function bzDeriv(p0, c1, c2, p3, t) {
+  const m = 1 - t;
+  return {
+    dx: 3 * m * m * (c1.x - p0.x) + 6 * m * t * (c2.x - c1.x) + 3 * t * t * (p3.x - c2.x),
+    dy: 3 * m * m * (c1.y - p0.y) + 6 * m * t * (c2.y - c1.y) + 3 * t * t * (p3.y - c2.y)
+  };
+}
+ 
+// PANJANG KURVA BEZIER — Aproksimasi numerik (32 segmen)
+// Digunakan sebagai bobot edge dalam Dijkstra
+function bzLen(p0, c1, c2, p3) {
+  let len = 0, prev = p0;
+  for (let i = 1; i <= 32; i++) {
+    const pt = bzPt(p0, c1, c2, p3, i / 32);
+    len += Math.hypot(pt.x - prev.x, pt.y - prev.y);
+    prev = pt;
+  }
+  return len;
+}
+ 
+// FUNGSI BANTU GEOMETRI
+ 
+// Interpolasi linear — digunakan untuk follow kamera & animasi zoom
+function lerp(a, b, t) { return a + (b - a) * t; }
+ 
+// Rotasi titik (x, y) sebesar angle radian terhadap origin
+function rotPt(x, y, angle) {
+  return {
+    x: x * Math.cos(angle) - y * Math.sin(angle),
+    y: x * Math.sin(angle) + y * Math.cos(angle)
+  };
+}
+ 
+// Menggambar lingkaran node (persimpangan jalan / marker)
+function lingkaranNode(cx, cy, r, warna, isi = true) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  if (isi) { ctx.fillStyle = warna;   ctx.fill();   }
+  else      { ctx.strokeStyle = warna; ctx.stroke(); }
+}
+
 })();
