@@ -474,15 +474,8 @@ function ensureConnected(edgeSet) {
 }
 
 // COMMIT 7
-// ALGORITMA DIJKSTRA — Pencarian Rute Terpendek
-//
-// Implementasi menggunakan Priority Queue (min-heap simulasi via
-// array sort) untuk menemukan jalur berbobot minimum dari node
-// sumber (src) ke node tujuan (dst).
-//
 // Bobot edge = panjang kurva Bezier (bzLen), bukan jarak Euclidean,
 // agar akurat terhadap lekukan jalan yang dirender.
-// ══════════════════════════════════════════════════════════════════
 function dijkstra(src, dst) {
   const INF      = 1e18;
   const dist     = new Array(nodes.length).fill(INF);
@@ -535,11 +528,9 @@ function dijkstra(src, dst) {
 }
 
 // COMMIT 8
-// ══════════════════════════════════════════════════════════════════
 // REKONSTRUKSI RUTE — computeRoute()
 // Mengambil hasil dijkstra() lalu membangun array pathEdges
 // berisi segmen Bezier yang siap dianimasikan.
-// ══════════════════════════════════════════════════════════════════
 function computeRoute() {
   if (startId === null || goalId === null) return;
  
@@ -575,11 +566,9 @@ function computeRoute() {
     `${path.length - 1} seg · ${Math.round(totalLen)}m`;
 }
  
-// ══════════════════════════════════════════════════════════════════
 // GENERATE 47 NODE LOKASI — posisi diacak setiap generateMap()
 // Setiap lokasi di-snap ke node jalan terdekat agar masuk graf
 // Dijkstra, lalu dihubungkan via edge 'local'.
-// ══════════════════════════════════════════════════════════════════
 function getNearestRoadNode(x, y) {
   let best = null, bestDist = Infinity;
   for (const n of nodes) {
@@ -646,11 +635,9 @@ function generateLocationNodes() {
   }
 }
  
-// ══════════════════════════════════════════════════════════════════
 // RANDOM START & GOAL
 // Start: node jalan biasa (bukan locationNode)
 // Goal : wajib salah satu dari 47 locationNode
-// ══════════════════════════════════════════════════════════════════
 function randomStartGoal() {
   if (startId !== null && nodes[startId]) nodes[startId].isStart = false;
   if (goalId  !== null && nodes[goalId])  nodes[goalId].isGoal   = false;
