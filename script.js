@@ -473,6 +473,7 @@ function ensureConnected(edgeSet) {
   }
 }
 
+// COMMIT 7
 // ALGORITMA DIJKSTRA — Pencarian Rute Terpendek
 //
 // Implementasi menggunakan Priority Queue (min-heap simulasi via
@@ -533,4 +534,150 @@ function dijkstra(src, dst) {
   return { nodes: nodeSeq, edges: edgeSeq };
 }
 
+// COMMIT 8
+// ══════════════════════════════════════════════════════════════════
+// REKONSTRUKSI RUTE — computeRoute()
+// Mengambil hasil dijkstra() lalu membangun array pathEdges
+// berisi segmen Bezier yang siap dianimasikan.
+// ══════════════════════════════════════════════════════════════════
+function computeRoute() {
+  if (startId === null || goalId === null) return;
+ 
+  const result = dijkstra(startId, goalId);
+  path = result.nodes;
+  const eids = result.edges;
+ 
+  if (path.length < 2) {
+    document.getElementById('tRoute').textContent = 'Tak ada rute';
+    pathEdges = []; totalLen = 0;
+    return;
+  }
+ 
+  pathEdges = []; totalLen = 0;
+  for (let i = 0; i < eids.length; i++) {
+    const e        = edges[eids[i]];
+    const fromNode = path[i];
+    let p0, c1, c2, p3;
+    // Tentukan arah Bezier sesuai arah perjalanan
+    if (e.a === fromNode) {
+      p0 = nodes[e.a]; c1 = e.c1; c2 = e.c2; p3 = nodes[e.b];
+    } else {
+      p0 = nodes[e.b]; c1 = e.c2; c2 = e.c1; p3 = nodes[e.a];
+    }
+    pathEdges.push({ p0, c1, c2, p3, len: e.len });
+    totalLen += e.len;
+  }
+ 
+  traveled = 0;
+  objX = nodes[startId].x;
+  objY = nodes[startId].y;
+  document.getElementById('tRoute').textContent =
+    `${path.length - 1} seg · ${Math.round(totalLen)}m`;
+}
+ 
+// ══════════════════════════════════════════════════════════════════
+// GENERATE 47 NODE LOKASI — posisi diacak setiap generateMap()
+// Setiap lokasi di-snap ke node jalan terdekat agar masuk graf
+// Dijkstra, lalu dihubungkan via edge 'local'.
+// ══════════════════════════════════════════════════════════════════
+function getNearestRoadNode(x, y) {
+  let best = null, bestDist = Infinity;
+  for (const n of nodes) {
+    const d = Math.hypot(n.x - x, n.y - y);
+    if (d < bestDist) { bestDist = d; best = n; }
+  }
+  return best;
+}
+ 
+function generateLocationNodes() {
+  locationNodes = [];
+  const MARGIN        = 160;
+  const MIN_DIST      = 140;   // jarak minimum antar marker lokasi
+  const usedPositions = [];
+ 
+  for (let i = 0; i < LOCATION_DATA.length; i++) {
+    const data = LOCATION_DATA[i];
+    let x, y, tries = 0;
+ 
+    // Cari posisi acak yang tidak terlalu dekat dengan marker lain
+    do {
+      x = rand(MARGIN, W - MARGIN);
+      y = rand(MARGIN, H - MARGIN);
+      tries++;
+    } while (
+      tries < 80 &&
+      usedPositions.some(p => Math.hypot(p.x - x, p.y - y) < MIN_DIST)
+    );
+ 
+    // Snap ke node jalan terdekat + offset kecil agar tidak menimpa simbol persimpangan
+    const nearest      = getNearestRoadNode(x, y);
+    const offsetAngle  = rand(0, Math.PI * 2);
+    const offsetDist   = rand(30, 90);
+    const fx = Math.max(MARGIN, Math.min(W - MARGIN, nearest.x + Math.cos(offsetAngle) * offsetDist));
+    const fy = Math.max(MARGIN, Math.min(H - MARGIN, nearest.y + Math.sin(offsetAngle) * offsetDist));
+ 
+    usedPositions.push({ x: fx, y: fy });
+ 
+    // Tambahkan sebagai node graf baru
+    const newNodeId = nodes.length;
+    nodes.push({ id: newNodeId, x: fx, y: fy, isLocationNode: true });
+ 
+    // Hubungkan ke node jalan terdekat
+    const na = nodes[newNodeId], nb = nearest;
+    const dx = nb.x - na.x, dy = nb.y - na.y, len = Math.hypot(dx, dy);
+    if (len > 1) {
+      const c1 = { x: na.x + dx * .33, y: na.y + dy * .33 };
+      const c2 = { x: na.x + dx * .67, y: na.y + dy * .67 };
+      edges.push({
+        id: edges.length, a: newNodeId, b: nearest.id,
+        c1, c2, len: bzLen(na, c1, c2, nb), roadLen: len, type: 'local'
+      });
+    }
+ 
+    locationNodes.push({
+      locId   : i,
+      nodeId  : newNodeId,
+      nama    : data.nama,
+      kategori: data.kategori,
+      icon    : data.icon,
+      x       : fx,
+      y       : fy,
+    });
+  }
+}
+ 
+// ══════════════════════════════════════════════════════════════════
+// RANDOM START & GOAL
+// Start: node jalan biasa (bukan locationNode)
+// Goal : wajib salah satu dari 47 locationNode
+// ══════════════════════════════════════════════════════════════════
+function randomStartGoal() {
+  if (startId !== null && nodes[startId]) nodes[startId].isStart = false;
+  if (goalId  !== null && nodes[goalId])  nodes[goalId].isGoal   = false;
+ 
+  // Cari node jalan terdekat dari posisi acak sebagai START
+  const MARGIN = 100;
+  const rx = rand(MARGIN, W - MARGIN);
+  const ry = rand(MARGIN, H - MARGIN);
+  let bestStart = null, bestDist = Infinity;
+  for (const n of nodes) {
+    if (n.isLocationNode) continue;
+    const d = Math.hypot(n.x - rx, n.y - ry);
+    if (d < bestDist) { bestDist = d; bestStart = n; }
+  }
+  startId = bestStart ? bestStart.id : randInt(0, nodes.length);
+ 
+  // GOAL: acak dari 47 lokasi
+  let goalLoc;
+  do {
+    goalLoc = locationNodes[randInt(0, locationNodes.length)];
+  } while (goalLoc.nodeId === startId);
+  goalId = goalLoc.nodeId;
+ 
+  nodes[startId].isStart = true;
+  nodes[goalId].isGoal   = true;
+  path = []; pathEdges = []; totalLen = 0; traveled = 0;
+  if (nodes[startId]) { objX = nodes[startId].x; objY = nodes[startId].y; }
+  document.getElementById('tRoute').textContent = '—';
+}
 })();
