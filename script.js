@@ -667,4 +667,82 @@ function randomStartGoal() {
   if (nodes[startId]) { objX = nodes[startId].x; objY = nodes[startId].y; }
   document.getElementById('tRoute').textContent = '—';
 }
+
+  //COMMMIT 9
+  // LOOP ANIMASI UTAMA — animate()
+function animate(ts) {
+  if (!running) return;
+  if (!lastTime) lastTime = ts;
+
+  const dt = Math.min(0.033, (ts - lastTime) / 1000);
+  lastTime = ts;
+
+  traveled += SPEED * dt;
+
+  if (traveled >= totalLen) {
+    traveled = totalLen;
+    posFromTravel(traveled);
+    updateFollowCam();
+    render();
+    stopAnim(true);   // animasi selesai → tiba di tujuan
+    return;
+  }
+
+  posFromTravel(traveled);
+  updateFollowCam();
+  render();
+  rafId = requestAnimationFrame(animate);
+}
+
+// KONTROL ANIMASI
+function startAnim() {
+  if (pathEdges.length === 0) computeRoute();
+  if (pathEdges.length === 0) { showToast('Tidak ada rute valid', 1800); return; }
+  if (running) return;
+  running  = true;
+  lastTime = null;
+  setDot('moving');
+  setStatus('Navigasi aktif');
+  document.getElementById('btnPlay').innerHTML = '⏸ Pause';
+  updateFollowBtn();
+  rafId = requestAnimationFrame(animate);
+}
+
+function pauseAnim() {
+  if (!running) return;
+  cancelAnimationFrame(rafId);
+  running = false; lastTime = null;
+  setDot('idle');
+  setStatus('Dijeda');
+  document.getElementById('btnPlay').innerHTML = '▶ Lanjut';
+  document.getElementById('follow-badge').style.display = 'none';
+}
+
+function stopAnim(arrived) {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  running = false; lastTime = null;
+  setDot(arrived ? 'done' : 'idle');
+  setStatus(arrived ? 'Tiba di tujuan!' : 'Siap');
+  document.getElementById('btnPlay').innerHTML = '▶ Start Track';
+  document.getElementById('follow-badge').style.display = 'none';
+  if (arrived) {
+    showToast('✅ Tiba di tujuan!', 2200);
+    if (followMode) zoomOutOverview();
+  }
+}
+
+function resetAnim() {
+  stopAnim(false);
+  traveled = 0;
+  if (startId !== null && nodes[startId]) {
+    objX = nodes[startId].x;
+    objY = nodes[startId].y;
+  }
+  computeRoute();
+  render();
+}
+
+function togglePlay() {
+  if (running) pauseAnim(); else startAnim();
+}
 })();
