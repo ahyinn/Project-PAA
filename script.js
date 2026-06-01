@@ -668,7 +668,7 @@ function randomStartGoal() {
   document.getElementById('tRoute').textContent = '—';
 }
 
-  //COMMMIT 9
+  //COMMIT 9
   // LOOP ANIMASI UTAMA — animate()
 function animate(ts) {
   if (!running) return;
@@ -744,5 +744,123 @@ function resetAnim() {
 
 function togglePlay() {
   if (running) pauseAnim(); else startAnim();
+}
+
+  //COMMIT 10
+  // POSISI & SUDUT KENDARAAN — posFromTravel()
+function posFromTravel(t) {
+  let acc = 0;
+  for (let i = 0; i < pathEdges.length; i++) {
+    const seg = pathEdges[i];
+    if (acc + seg.len >= t || i === pathEdges.length - 1) {
+      const s  = Math.min(t - acc, seg.len);
+      const tp = seg.len > 0 ? s / seg.len : 0;
+      const pt = bzPt(seg.p0, seg.c1, seg.c2, seg.p3, tp);
+      const dv = bzDeriv(seg.p0, seg.c1, seg.c2, seg.p3, tp);
+      objX = pt.x; objY = pt.y;
+      if (Math.hypot(dv.dx, dv.dy) > 0.001) {
+        objAngle = Math.atan2(dv.dy, dv.dx);   // sinkronisasi rotasi
+      }
+      break;
+    }
+    acc += seg.len;
+  }
+}
+
+// RENDER OBJEK BERGERAK — drawObjek()
+// Translate + Rotate canvas ke posisi kendaraan, lalu gambar
+// sesuai tipe kendaraan yang dipilih.
+function drawObjek(x, y, angle, type) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  // Bayangan di bawah semua kendaraan
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.beginPath();
+  ctx.ellipse(0, 7, type === 'person' ? 6 : 14, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  switch (type) {
+    case 'car':    drawMobil();   break;
+    case 'motor':  drawMotor();   break;
+    case 'bike':   drawSepeda();  break;
+    case 'person': drawOrang();   break;
+  }
+  ctx.restore();
+}
+
+// ── Mobil ──
+function drawMobil() {
+  ctx.fillStyle = '#c84b2f';
+  ctx.beginPath(); ctx.roundRect(-16, -7, 32, 14, 4); ctx.fill();
+  ctx.fillStyle = '#a03020';
+  ctx.beginPath(); ctx.roundRect(-9, -13, 18, 10, 3); ctx.fill();
+  // Kaca depan & belakang
+  ctx.fillStyle = 'rgba(180,220,255,0.85)';
+  ctx.beginPath(); ctx.roundRect(0, -12, 7, 7, 1.5); ctx.fill();
+  ctx.fillStyle = 'rgba(180,220,255,0.6)';
+  ctx.beginPath(); ctx.roundRect(-7, -12, 6, 7, 1.5); ctx.fill();
+  // Lampu
+  ctx.fillStyle = '#fef08a';
+  ctx.fillRect(14, -5, 4, 3); ctx.fillRect(14, 2, 4, 3);
+  ctx.fillStyle = '#fca5a5';
+  ctx.fillRect(-18, -5, 4, 3); ctx.fillRect(-18, 2, 4, 3);
+  // Roda
+  for (const [wx, wy] of [[-10, 8], [10, 8]]) {
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath(); ctx.ellipse(wx, wy, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath(); ctx.arc(wx, wy, 2, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ── Motor ──
+function drawMotor() {
+  ctx.fillStyle = '#1d4ed8';
+  ctx.beginPath(); ctx.roundRect(-12, -4, 24, 8, 3); ctx.fill();
+  ctx.fillStyle = '#1e40af';
+  ctx.beginPath(); ctx.roundRect(-6, -7, 12, 7, 2); ctx.fill();
+  // Helm pengendara
+  ctx.fillStyle = '#f8d48a';
+  ctx.beginPath(); ctx.arc(0, -10, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath(); ctx.arc(0, -10, 5, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fef08a'; ctx.fillRect(12, -2, 3, 4);
+  for (const wx of [-10, 10]) {
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath(); ctx.ellipse(wx, 0, 3, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath(); ctx.arc(wx, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ── Sepeda ──
+function drawSepeda() {
+  ctx.strokeStyle = '#5a3e1b'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(0, -6); ctx.lineTo(8, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(10, -4); ctx.stroke();
+  ctx.fillStyle = '#f8d48a';
+  ctx.beginPath(); ctx.arc(0, -9, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2d6a4f';
+  ctx.beginPath(); ctx.arc(0, -9, 4, Math.PI, Math.PI * 2); ctx.fill();
+  for (const wx of [-8, 8]) {
+    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(wx, 0, 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath(); ctx.arc(wx, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ── Orang ──
+function drawOrang() {
+  const warna = '#5a3e1b';
+  ctx.fillStyle = '#f8d48a'; lingkaranNode(0, -12, 5, warna, true);
+  garisDAA(0, -7, 0, 4, warna, 2);
+  const kick = Math.sin(traveled * 0.08) * 8;
+  garisDAA(0, 4, kick,  12, warna, 2);
+  garisDAA(0, 4, -kick, 12, warna, 2);
+  garisDAA(0, -4, 8,  2, warna, 2);
+  garisDAA(0, -4, -8, 2, warna, 2);
+  ctx.fillStyle = '#2563eb'; ctx.fillRect(-4, -7, 8, 10);
 }
 })();
