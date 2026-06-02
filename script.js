@@ -911,4 +911,369 @@ function zoomOutOverview() {
   requestAnimationFrame(step);
 }
 
+  //COMMIT 12
+  // RENDER UTAMA — render()
+function render() {
+  const cw = cv.width, ch = cv.height;
+  ctx.clearRect(0, 0, cw, ch);
+
+  // Background luar peta
+  ctx.fillStyle = '#e8dfc8';
+  ctx.fillRect(0, 0, cw, ch);
+
+  ctx.save();
+  ctx.scale(zoom, zoom);
+  ctx.translate(-vx, -vy);
+
+  // Background peta
+  ctx.fillStyle = '#ede4ce';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid samar
+  ctx.globalAlpha = 0.06;
+  for (let i = 0; i <= W; i += 120) garisDAA(i, 0, i, H, '#806030', 1);
+  for (let i = 0; i <= H; i += 120) garisDAA(0, i, W, i, '#806030', 1);
+  ctx.globalAlpha = 1;
+
+  drawWater();
+  drawParks();
+  drawBuildings();
+  drawRoads();
+  drawRouteHighlight();
+  drawNodes();
+
+  // Bendera START/GOAL untuk node jalan biasa
+  for (const n of nodes) {
+    if (n.isStart) drawBendera(n.x, n.y, '#dc2626', 'START',  '🚩');
+    else if (n.isGoal) drawBendera(n.x, n.y, '#16a34a', 'FINISH', '🏁');
+  }
+
+  // Aura kendaraan saat follow aktif
+  if (followMode && running) {
+    ctx.beginPath(); ctx.arc(objX, objY, 34, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(45,106,79,0.10)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(objX, objY, 20, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(45,106,79,0.15)'; ctx.fill();
+  }
+  drawObjek(objX, objY, objAngle, vehicleType);
+
+  // Marker 47 lokasi (layer paling atas)
+  drawLocationMarkers();
+
+  ctx.restore();
+  document.getElementById('tZoom').textContent = Math.round(zoom * 100) + '%';
+}
+
+// ── Badan Air ──
+function drawWater() {
+  for (const w of waterBodies) {
+    ctx.fillStyle = '#a8c8e0';
+    ctx.beginPath();
+    ctx.ellipse(w.x + w.w / 2, w.y + w.h / 2, w.w / 2, w.h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#7aaac0'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(w.x + w.w / 2, w.y + w.h / 2, w.w / 3, w.h / 3, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+// ── Taman ──
+function drawParks() {
+  for (const p of parks) {
+    ctx.fillStyle = '#b8d8a8';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.strokeStyle = '#88b870'; ctx.lineWidth = 1;
+    ctx.strokeRect(p.x, p.y, p.w, p.h);
+    for (const tr of p.trees) {
+      lingkaranNode(tr.x, tr.y, tr.r, '#4a8840', true);
+      lingkaranNode(tr.x - 2, tr.y - 2, tr.r * .55, '#6aaa60', true);
+    }
+  }
+}
+
+// ── Bangunan ──
+function drawBuildings() {
+  for (const b of buildings) {
+    const { x, y, w, h, pal, floors, shadow, roofStyle } = b;
+    // Bayangan
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.fillRect(x + shadow, y + shadow, w, h);
+    // Badan
+    ctx.fillStyle = pal.fill; ctx.strokeStyle = pal.stroke; ctx.lineWidth = 0.8;
+    ctx.fillRect(x, y, w, h); ctx.strokeRect(x, y, w, h);
+    // Lantai
+    if (floors > 1) {
+      ctx.globalAlpha = 0.3; ctx.lineWidth = 0.5;
+      const fh = h / floors;
+      for (let f = 1; f < floors; f++) garisDAA(x + 2, y + fh * f, x + w - 2, y + fh * f, pal.stroke, 0.5);
+      ctx.globalAlpha = 1;
+    }
+    // Jendela
+    const ww = Math.max(4, w / 5), wh = Math.max(3, h / 5);
+    const cols = Math.max(1, Math.floor(w / (ww + 5)));
+    const rows = Math.max(1, Math.floor(h / (wh + 6)));
+    const gx = (w - cols * ww) / (cols + 1);
+    const gy = (h - rows * wh) / (rows + 1);
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      ctx.fillStyle = 'rgba(200,220,255,0.7)';
+      ctx.fillRect(x + gx + (ww + gx) * c, y + gy + (wh + gy) * r, ww, wh);
+    }
+    // Atap
+    if (floors >= 2) {
+      const iso = Math.min(floors, 4) * 3;
+      if (iso > 4 && roofStyle === 1) {
+        ctx.fillStyle = pal.roof; ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x, y); ctx.lineTo(x + w / 2, y - iso * 2); ctx.lineTo(x + w, y);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = pal.stroke; ctx.lineWidth = 0.7; ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+}
+
+// ── Jalan ──
+function drawRoads() {
+  for (const e of edges) {
+    const na = nodes[e.a], nb = nodes[e.b];
+    const rw          = e.type === 'arterial' ? 20 : e.type === 'collector' ? 14 : 9;
+    const warnaPinggir = e.type === 'arterial' ? '#b8a880' : e.type === 'collector' ? '#c0b088' : '#c8b890';
+    const warnaAspal   = e.type === 'arterial' ? '#d8cca8' : e.type === 'collector' ? '#e0d4b0' : '#e8dcbc';
+
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // Pinggir jalan
+    ctx.beginPath(); ctx.moveTo(na.x, na.y);
+    ctx.bezierCurveTo(e.c1.x, e.c1.y, e.c2.x, e.c2.y, nb.x, nb.y);
+    ctx.strokeStyle = warnaPinggir; ctx.lineWidth = rw + 6; ctx.stroke();
+
+    // Aspal
+    ctx.beginPath(); ctx.moveTo(na.x, na.y);
+    ctx.bezierCurveTo(e.c1.x, e.c1.y, e.c2.x, e.c2.y, nb.x, nb.y);
+    ctx.strokeStyle = warnaAspal; ctx.lineWidth = rw; ctx.stroke();
+
+    // Marka tengah
+    if (e.type !== 'local') {
+      ctx.beginPath(); ctx.moveTo(na.x, na.y);
+      ctx.bezierCurveTo(e.c1.x, e.c1.y, e.c2.x, e.c2.y, nb.x, nb.y);
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.2;
+      ctx.setLineDash(e.type === 'arterial' ? [14, 10] : [10, 13]); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}
+
+// ── Highlight Rute Dijkstra ──
+function drawRouteHighlight() {
+  if (pathEdges.length === 0) return;
+  for (const seg of pathEdges) {
+    ctx.beginPath(); ctx.moveTo(seg.p0.x, seg.p0.y);
+    ctx.bezierCurveTo(seg.c1.x, seg.c1.y, seg.c2.x, seg.c2.y, seg.p3.x, seg.p3.y);
+    ctx.strokeStyle = 'rgba(45,106,79,0.18)'; ctx.lineWidth = 26; ctx.stroke();
+  }
+  for (const seg of pathEdges) {
+    ctx.beginPath(); ctx.moveTo(seg.p0.x, seg.p0.y);
+    ctx.bezierCurveTo(seg.c1.x, seg.c1.y, seg.c2.x, seg.c2.y, seg.p3.x, seg.p3.y);
+    ctx.strokeStyle = '#2d6a4f'; ctx.lineWidth = 4; ctx.setLineDash([]); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(45,106,79,0.5)';
+  for (let d = 180; d < totalLen; d += 260) {
+    let acc = 0;
+    for (const seg of pathEdges) {
+      if (acc + seg.len >= d) {
+        const tp = (d - acc) / seg.len;
+        const pt = bzPt(seg.p0, seg.c1, seg.c2, seg.p3, tp);
+        lingkaranNode(pt.x, pt.y, 4, 'rgba(45,106,79,0.5)', true);
+        break;
+      }
+      acc += seg.len;
+    }
+  }
+}
+
+// ── Node Persimpangan ──
+function drawNodes() {
+  for (const n of nodes) {
+    if (n.isLocationNode || n.isStart || n.isGoal) continue;
+    const onPath = path.includes(n.id);
+    lingkaranNode(n.x, n.y, onPath ? 5 : 3, onPath ? '#2d6a4f' : '#a09070', true);
+    lingkaranNode(n.x, n.y, onPath ? 3 : 1.5, '#ffffff', true);
+  }
+}
+
+// ── Bendera START / FINISH ──
+function drawBendera(x, y, warna, label, ikon) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2);
+  ctx.fillStyle = warna + '33'; ctx.fill();
+  ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
+  ctx.fillStyle = warna; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 36);
+  ctx.strokeStyle = '#5a3e1b'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y - 36); ctx.lineTo(x + 18, y - 28); ctx.lineTo(x, y - 20);
+  ctx.closePath(); ctx.fillStyle = warna; ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 0.8; ctx.stroke();
+  ctx.font = 'bold 10px Segoe UI,sans-serif'; ctx.textAlign = 'center';
+  const tw = ctx.measureText(label).width + 10;
+  ctx.fillStyle = 'rgba(255,252,245,0.92)';
+  ctx.strokeStyle = warna; ctx.lineWidth = 1;
+  ctx.fillRect(x - tw / 2, y - 52, tw, 14);
+  ctx.strokeRect(x - tw / 2, y - 52, tw, 14);
+  ctx.fillStyle = warna;
+  ctx.fillText(label, x, y - 41);
+  ctx.restore();
+}
+
+// ── Marker 47 Lokasi ──
+function drawLocationMarkers() {
+  const BASE_R   = 14;
+  const ICON_SZ  = 16;
+  const LABEL_SZ = 10;
+
+  for (const loc of locationNodes) {
+    const { x, y, icon, nama, nodeId } = loc;
+    const isActive = (activePopupLocId === loc.locId);
+    const onPath   = path.includes(nodeId);
+    const r        = isActive ? BASE_R * 1.25 : BASE_R;
+
+    // Aura
+    ctx.beginPath(); ctx.arc(x, y, r + 8, 0, Math.PI * 2);
+    ctx.fillStyle = isActive ? 'rgba(37,99,235,0.18)' : onPath ? 'rgba(45,106,79,0.15)' : 'rgba(90,62,27,0.10)';
+    ctx.fill();
+
+    // Lingkaran marker
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = isActive ? '#2563eb' : onPath ? '#2d6a4f' : '#fff8ed';
+    ctx.fill();
+    ctx.strokeStyle = isActive ? '#1d4ed8' : onPath ? '#1b4332' : '#c8a060';
+    ctx.lineWidth = isActive ? 2.5 : 1.8; ctx.stroke();
+
+    // Pin bawah
+    ctx.beginPath();
+    ctx.moveTo(x - 5, y + r - 1); ctx.lineTo(x + 5, y + r - 1); ctx.lineTo(x, y + r + 8);
+    ctx.closePath();
+    ctx.fillStyle = isActive ? '#2563eb' : onPath ? '#2d6a4f' : '#c8a060';
+    ctx.fill();
+
+    // Emoji
+    ctx.font = `${ICON_SZ}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(icon, x, y - 1);
+    ctx.textBaseline = 'alphabetic';
+
+    // Label (hanya saat zoom cukup besar)
+    if (zoom >= 0.55) {
+      const shortNama = nama.length > 18 ? nama.substring(0, 16) + '…' : nama;
+      ctx.font = `bold ${LABEL_SZ}px Segoe UI,sans-serif`;
+      const tw = ctx.measureText(shortNama).width + 10;
+      const lx = x, ly = y - r - 14;
+      ctx.fillStyle = 'rgba(255,252,245,0.93)';
+      ctx.strokeStyle = isActive ? '#2563eb' : '#c8a060';
+      ctx.lineWidth = 1;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(lx - tw / 2, ly - 9, tw, 13, 3); }
+      else                { ctx.beginPath(); ctx.rect(lx - tw / 2, ly - 9, tw, 13); }
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = isActive ? '#1d4ed8' : '#3d2800';
+      ctx.textAlign = 'center';
+      ctx.fillText(shortNama, lx, ly + 1);
+    }
+  }
+
+  // Bendera locationNode yang jadi start/goal
+  for (const loc of locationNodes) {
+    const nd = nodes[loc.nodeId];
+    if (nd && nd.isStart) drawBendera(loc.x, loc.y, '#dc2626', 'START',  '🚩');
+    if (nd && nd.isGoal)  drawBendera(loc.x, loc.y, '#16a34a', 'FINISH', '🏁');
+  }
+}
+
+// POPUP INFO LOKASI
+function showLocationPopup(loc, screenX, screenY) {
+  activePopupLocId = loc.locId;
+  const popup = document.getElementById('location-popup');
+  document.getElementById('lpIcon').textContent = loc.icon;
+  document.getElementById('lpNama').textContent = loc.nama;
+  document.getElementById('lpKat').textContent  = loc.kategori;
+  document.getElementById('lpId').textContent   = '';
+  popup.style.display = 'block';
+  const pw = 200, ph = 110;
+  let px = screenX + 16, py = screenY - 20;
+  if (px + pw > window.innerWidth  - 10) px = screenX - pw - 10;
+  if (py + ph > window.innerHeight - 10) py = screenY - ph - 10;
+  if (py < 10) py = 10;
+  popup.style.left = px + 'px';
+  popup.style.top  = py + 'px';
+  render();
+}
+
+function hideLocationPopup() {
+  activePopupLocId = null;
+  document.getElementById('location-popup').style.display = 'none';
+  render();
+}
+
+document.getElementById('lpClose').onclick = hideLocationPopup;
+
+// DETEKSI KLIK MARKER LOKASI
+function handleLocationClick(screenX, screenY) {
+  const wx = screenX / zoom + vx;
+  const wy = screenY / zoom + vy;
+  const HIT_R = Math.max(18, 28 / zoom);
+  for (const loc of locationNodes) {
+    if (Math.hypot(loc.x - wx, loc.y - wy) <= HIT_R) {
+      showLocationPopup(loc, screenX, screenY);
+      return true;
+    }
+  }
+  return false;
+}
+
+// FEEDBACK UI
+function setDot(s) {
+  const d = document.getElementById('dot');
+  d.className = 'dot' + (s === 'moving' ? ' moving' : s === 'done' ? ' done' : '');
+}
+function setStatus(t) { document.getElementById('statusTxt').textContent = t; }
+function showToast(msg, dur) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._t); t._t = setTimeout(() => t.style.display = 'none', dur);
+}
+function updateUI() {
+  document.getElementById('tNodes').textContent = LOCATION_DATA.length;
+  document.getElementById('tRoads').textContent = edges.length;
+}
+
+// EVENT BINDING TOMBOL UI
+document.getElementById('btnMap').onclick    = generateMap;
+document.getElementById('btnPos').onclick    = () => { stopAnim(false); randomStartGoal(); computeRoute(); render(); };
+document.getElementById('btnPlay').onclick   = togglePlay;
+document.getElementById('btnReset').onclick  = resetAnim;
+document.getElementById('btnZIn').onclick    = () => { if (followMode && running) disableFollow(); zoomAtCenter(1.25); };
+document.getElementById('btnZOut').onclick   = () => { if (followMode && running) disableFollow(); zoomAtCenter(0.8); };
+document.getElementById('btnFollow').onclick = () => {
+  followMode = !followMode;
+  updateFollowBtn();
+  showToast(followMode ? 'Follow aktif' : 'Follow nonaktif', 1200);
+};
+
+document.querySelectorAll('.vbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    vehicleType = btn.dataset.v;
+    document.querySelectorAll('.vbtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    showToast('Kendaraan: ' + btn.textContent.trim(), 1200);
+    render();
+  });
+});
+
+// INIT
+resize();
+generateMap();
+updateFollowBtn();
 })();
