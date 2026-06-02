@@ -863,4 +863,52 @@ function drawOrang() {
   garisDAA(0, -4, -8, 2, warna, 2);
   ctx.fillStyle = '#2563eb'; ctx.fillRect(-4, -7, 8, 10);
 }
+
+//COMMIT 11
+// FOLLOW KAMERA — updateFollowCam()
+function updateFollowCam() {
+  if (!followMode || !running) return;
+
+  // Interpolasi zoom menuju target follow
+  zoom = lerp(zoom, FOLLOW_ZOOM_TARGET, LERP_ZOOM);
+  zoom = Math.min(Math.max(zoom, ZMIN), ZMAX);
+
+  // Interpolasi pan agar objek selalu di tengah layar
+  vx = lerp(vx, objX - cv.width  / (2 * zoom), LERP_PAN);
+  vy = lerp(vy, objY - cv.height / (2 * zoom), LERP_PAN);
+
+  clamp();
+}
+
+// NONAKTIFKAN FOLLOW — saat user drag/scroll manual
+function disableFollow() {
+  if (!followMode) return;
+  followMode = false;
+  updateFollowBtn();
+}
+
+// UPDATE TOMBOL FOLLOW — sinkronisasi visual status follow
+function updateFollowBtn() {
+  const btn   = document.getElementById('btnFollow');
+  const badge = document.getElementById('follow-badge');
+  btn.className = followMode ? 'btn follow-on' : 'btn follow-off';
+  badge.style.display = (followMode && running) ? 'block' : 'none';
+}
+
+// ZOOM OUT OVERVIEW — animasi kembali ke tampilan penuh peta
+function zoomOutOverview() {
+  const tz  = Math.min(cv.width / W, cv.height / H) * 0.92;
+  const tvx = W / 2 - cv.width  / (2 * tz);
+  const tvy = H / 2 - cv.height / (2 * tz);
+  let n = 0;
+  function step() {
+    zoom = lerp(zoom, tz,  .06);
+    vx   = lerp(vx,   tvx, .06);
+    vy   = lerp(vy,   tvy, .06);
+    clamp(); render();
+    if (++n < 80) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 })();
